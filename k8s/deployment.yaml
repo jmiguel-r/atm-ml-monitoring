@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atm-monitoring-api
+  labels:
+    app: atm-monitoring
+    component: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: atm-monitoring
+      component: api
+  template:
+    metadata:
+      labels:
+        app: atm-monitoring
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: atm-monitoring:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PYTHONPATH
+              value: /app
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atm-monitoring-api-svc
+spec:
+  selector:
+    app: atm-monitoring
+    component: api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: LoadBalancer
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: atm-monitoring-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: atm-monitoring-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
