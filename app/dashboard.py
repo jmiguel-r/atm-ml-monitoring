@@ -107,7 +107,7 @@ with tab1:
             return colors.get(val, "")
 
         st.dataframe(
-            df_alerts.style.applymap(color_severity, subset=["Severity"]),
+            df_alerts.style.map(color_severity, subset=["Severity"]),
             use_container_width=True,
             height=400,
         )
