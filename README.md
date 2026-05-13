@@ -1,11 +1,15 @@
 # 🏧 ATM ML Monitoring System
 
-> **Architected and deployed an ML-powered monitoring system for 10,000+ ATMs**  
-> Real-time anomaly detection · 6 ML detectors · FastAPI · Streamlit · Docker · Kubernetes
+> **Production-ready ML anomaly detection platform for 10,000+ ATMs**  
+> Real-time detection · 6 ensemble ML detectors · REST API · Interactive dashboard · Kubernetes-ready
 
-[![CI/CD](https://github.com/YOUR_USERNAME/atm-ml-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/atm-ml-monitoring/actions)
+[![CI/CD](https://github.com/jmiguel-r/atm-ml-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/jmiguel-r/atm-ml-monitoring/actions)
+[![Tests](https://img.shields.io/badge/Tests-39%2F39%20passing-brightgreen)](./tests/)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green.svg)](https://fastapi.tiangolo.com)
+[![Streamlit](https://img.shields.io/badge/Streamlit-interactive-FF4B4B.svg)](https://streamlit.io)
+[![Docker](https://img.shields.io/badge/Docker-multi%2Dcontainer-2496ED.svg)](https://docker.com)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-HPA%2Dready-326CE5.svg)](https://kubernetes.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -65,39 +69,75 @@
 
 ## 🚀 Quick Start
 
-### 1. Clone and install
+### Option 1: Docker Compose (Recommended — 3 commands)
 
 ```bash
 git clone https://github.com/jmiguel-r/atm-ml-monitoring.git
 cd atm-ml-monitoring
-pip install -r requirements.txt
+docker compose up --build
 ```
 
-### 2. Run a detection batch
+Then open:
+- **API docs:** http://localhost:8000/docs
+- **Dashboard:** http://localhost:8501
+
+### Option 2: Local Python
 
 ```bash
-python scripts/run_batch.py --n-atms 1000 --inject-anomalies --verbose
+git clone https://github.com/jmiguel-r/atm-ml-monitoring.git
+cd atm-ml-monitoring
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python scripts/run_batch.py --n-atms 1000 --inject-anomalies
 ```
 
-### 3. Start the API
+### Option 3: Step-by-Step (3 terminals)
 
+**Terminal 1 — API:**
 ```bash
 uvicorn app.api:app --reload
-# → http://localhost:8000/docs
 ```
 
-### 4. Launch the dashboard
-
+**Terminal 2 — Dashboard:**
 ```bash
 streamlit run app/dashboard.py
-# → http://localhost:8501
 ```
 
-### 5. Run with Docker
+**Terminal 3 — Batch runner:**
+```bash
+python scripts/run_batch.py --n-atms 2000 --inject-anomalies --verbose
+```
+
+---
+
+## 📊 Usage
+
+### REST API (FastAPI)
+Access interactive docs at http://localhost:8000/docs
 
 ```bash
-docker-compose up --build
+# Trigger a detection batch
+curl -X POST http://localhost:8000/batch/run \
+  -H "Content-Type: application/json" \
+  -d '{"n_atms": 1000, "inject_anomalies": true}'
+
+# Get active alerts
+curl http://localhost:8000/alerts?severity=CRITICAL
+
+# Get ATM history
+curl http://localhost:8000/atm/ATM_000001/history
 ```
+
+### Streamlit Dashboard
+Visit http://localhost:8501
+
+- **🚨 Live Alerts** — Filterable table of active alerts
+- **🗺️ Regional View** — Risk distribution by region (Mexico)
+- **🤖 Detector Analysis** — Anomalies per detector + feature distributions
+- **📍 ATM Map** — Interactive map with risk heatmap
+- **📈 Trend** — Box plots and top 20 highest-risk ATMs
+
+---
 
 ---
 
@@ -165,6 +205,75 @@ pytest tests/ -v --cov=src
 ```
 
 35 unit tests covering all modules — simulator, features, all 6 detectors, alert engine.
+
+---
+
+## 🚢 Deployment
+
+### Cloud Deployment (AWS / GCP / Azure)
+
+#### AWS ECS (Elastic Container Service)
+
+1. **Build and push image:**
+```bash
+aws ecr create-repository --repository-name atm-ml-monitoring
+aws ecr get-login-password | docker login --username AWS --password-stdin YOUR_ACCOUNT.dkr.ecr.REGION.amazonaws.com
+docker build -t atm-ml-monitoring .
+docker tag atm-ml-monitoring:latest YOUR_ACCOUNT.dkr.ecr.REGION.amazonaws.com/atm-ml-monitoring:latest
+docker push YOUR_ACCOUNT.dkr.ecr.REGION.amazonaws.com/atm-ml-monitoring:latest
+```
+
+2. **Deploy with Terraform:**
+See `infra/terraform/` for IaC templates (ECS task definitions, ALB, RDS for PostgreSQL).
+
+3. **Access:**
+- API: `https://api-atm-monitoring.youromain.com`
+- Dashboard: `https://dashboard-atm-monitoring.yourdomain.com`
+
+#### Google Cloud Run
+
+```bash
+# Build and push
+gcloud builds submit --tag gcr.io/YOUR_PROJECT/atm-ml-monitoring
+
+# Deploy API
+gcloud run deploy atm-api \
+  --image gcr.io/YOUR_PROJECT/atm-ml-monitoring \
+  --port 8000 \
+  --memory 1Gi \
+  --cpu 1
+
+# Deploy Dashboard
+gcloud run deploy atm-dashboard \
+  --image gcr.io/YOUR_PROJECT/atm-ml-monitoring \
+  --port 8501 \
+  --memory 2Gi \
+  --cpu 2 \
+  --command streamlit \
+  --args "run,app/dashboard.py"
+```
+
+#### Kubernetes (Self-hosted or managed)
+
+```bash
+# Using provided k8s config
+kubectl apply -f k8s/deployment.yaml
+
+# Check status
+kubectl get pods -l app=atm-monitoring
+kubectl logs -f deployment/atm-monitoring-api
+```
+
+### Production Checklist
+
+- [ ] Database: PostgreSQL for alert history (not in-memory)
+- [ ] Cache: Redis for alert deduplication across pods
+- [ ] Secrets: Use Cloud Secrets Manager (AWS Secrets, GCP Secret Manager)
+- [ ] Monitoring: Prometheus + Grafana (Prometheus config in `monitoring/`)
+- [ ] Logging: CloudWatch (AWS) or Cloud Logging (GCP)
+- [ ] CI/CD: GitHub Actions automatically tests and deploys on push
+- [ ] Load balancing: ALB (AWS) or Cloud Load Balancer (GCP)
+- [ ] Auto-scaling: HPA configured for 2-10 pods based on CPU/memory
 
 ---
 
